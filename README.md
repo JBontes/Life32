@@ -10,5 +10,7 @@ The code has been tested with D7 and D_XE7, and it should compile with all curre
 
 It does not compile in Lazarus but making it compatible should not be too much work.  
 
-Note that the lastest version of the executable Life32.exe is also include for those people that don't feel like compiling from source.
+You can find the binary files needed to run Life32 in the `Binary` folder.  
+Just copy these into any folder and run the program from there.  
+
 
