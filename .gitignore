@@ -22,6 +22,10 @@
 !life32.exe
 *.identcache
 *.map
+*.bsdproj
+*.dproj
+*.bdsgroup
+*.groupproj
 *.stat
 *.~dsk
 *.dsk
