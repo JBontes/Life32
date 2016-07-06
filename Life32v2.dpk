@@ -1,0 +1,50 @@
+package Life32v2;
+
+{$R *.res}
+{$IFDEF IMPLICITBUILDING This IFDEF should not be used by users}
+{$ALIGN 8}
+{$ASSERTIONS ON}
+{$BOOLEVAL OFF}
+{$DEBUGINFO ON}
+{$EXTENDEDSYNTAX ON}
+{$IMPORTEDDATA ON}
+{$IOCHECKS ON}
+{$LOCALSYMBOLS ON}
+{$LONGSTRINGS ON}
+{$OPENSTRINGS ON}
+{$OPTIMIZATION OFF}
+{$OVERFLOWCHECKS OFF}
+{$RANGECHECKS OFF}
+{$REFERENCEINFO OFF}
+{$SAFEDIVIDE OFF}
+{$STACKFRAMES ON}
+{$TYPEDADDRESS OFF}
+{$VARSTRINGCHECKS ON}
+{$WRITEABLECONST ON}
+{$MINENUMSIZE 1}
+{$IMAGEBASE $400000}
+{$DEFINE DEBUG}
+{$ENDIF IMPLICITBUILDING}
+{$DESCRIPTION 'Components needed for Life32'}
+{$DESIGNONLY}
+{$IMPLICITBUILD ON}
+
+requires
+  vcl,
+  rtl,
+  vclx,
+  VclSmp;
+
+contains
+  NewExplButton in 'NewExplButton.pas',
+  Snapshot in 'Snapshot.pas',
+  NewTabset in 'NewTabset.pas',
+  LifeSaveDialog in 'LifeSaveDialog.pas',
+  LifeBox in 'LifeBox.pas',
+  DropTarget in 'DropTarget.pas',
+  DropSource in 'DropSource.pas',
+  ThdTim in 'ThdTim.pas',
+  MyLinkLabel in 'MyLinkLabel.pas';
+
+end.
+
