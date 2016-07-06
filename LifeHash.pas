@@ -1,9 +1,14 @@
 (**************************************************************
+based on:
  LifeHash.java
  This class keeps a fast-lookup table of LifeCell blocks.
   (c) Alan Hensel, Apr 1996. All Rights Reserved.
 **************************************************************)
 unit LifeHash;
+
+(* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. *)
 
 interface
 
