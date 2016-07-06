@@ -19,6 +19,7 @@
 *.dcu
 *.killme
 *.exe
+!life32.exe
 *.identcache
 *.map
 *.stat
