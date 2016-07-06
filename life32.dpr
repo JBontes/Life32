@@ -27,7 +27,8 @@ uses
   Ask in 'Ask.pas' {AskForm},
   Splash in 'Splash.pas' {SplashForm},
   gifimage in 'gifimage.pas',
-  LifeRules in 'LifeRules.pas';
+  LifeRules in 'LifeRules.pas',
+  WinHelpViewer;
 
 {BenchMarkForm}
 
@@ -39,7 +40,7 @@ var
 
 begin
   Application.Initialize;
-  Application.HelpFile := 'Life32.hlp';
+  Application.HelpFile := ExtractFilePath(Application.ExeName)+'Life32.hlp';
   SplashScreen:= TSplashForm.Create(Application);
   try
     //SplashScreen.Show;
@@ -50,7 +51,7 @@ begin
     Application.CreateForm(TLife32MainForm, Form1);
   //SplashScreen.Close;
   finally
-    SplashScreen.Free; 
+    SplashScreen.Free;
   end; {try}
   Application.Run;
   //sometimes the application hung here, due to OLE issues
