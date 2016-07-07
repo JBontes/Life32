@@ -82,10 +82,6 @@ begin
   with ARect do Result:= (Left = Right) or (Top = Bottom);
 end;
 
-//We define the functions here, so we can use them, before actually coding
-//them. Hence the "forward"
-//Remember that Delphi is a one-pass compiler, so it needs these hints.
-//This is why it can compile 30,000 lines a second on my 100 Mhz Pentium.
 function GetLifeType(LifeLines: TStringList): TLifeType; forward;
 
 procedure ReadTorusData(ALine: string; AUniverse: TUniverse); forward;
@@ -188,8 +184,7 @@ begin
 end;
 
 
-//Try to read the text file and get some clue as to what kind of file
-//it is.
+//Try to read the text file and get some clue as to what kind of file it is.
 //BTW, notice that LifeLoad works with stringlists, not files.
 //This way the exact same code can be used for reading files and
 //reading stuff being dragged or pasted in.
@@ -271,8 +266,7 @@ end;
 
 //This function filters out the description from a pattern.
 //Usefull for the preview function.
-//It also filters out the rule if there is any clue in the pattern
-//file.
+//It also filters out the rule if there is any clue in the pattern file.
 //This is stored in the unit variable "LastFileRules".
 function GetDescription(LifeLines: TStringList): TStringList;
 var
@@ -1107,7 +1101,7 @@ begin
       repeat
         //Let the user know about the progress of the save operation.
         //The write routines lets the universe know.
-        //The universe lets it's owner know (the LifeBox in Life32).
+        //The universe lets its owner know (the LifeBox in Life32).
         //And the LifeBox lets the main Window know.
         //The main window in turn shows the progress to the user, and checks
         //to see if the user pressed <esc>. If so it will ask this routine
@@ -1262,9 +1256,8 @@ begin
     if IncludeTorusData then begin
       WriteTorusData(LifeLines,AUniverse);
       //Absolute x and y
-      ALine:= 'x = '+IntToStr(Left)+', y = '+IntToStr(Top);
-    end
-    else begin
+      ALine:= 'x = '+IntToStr(ABS((Right-1) - Left)) + ', y = '+IntToStr(ABS(Bottom - Top));
+    end else begin
       //Width, Height in starting line.
       ALine:= 'x = '+IntToStr(Right-Left-1)+', y = '+IntToStr(Bottom-Top);
     end;

@@ -118,7 +118,7 @@ var
   LeftRules, RightRules: string;
   bs: boolean;
 begin
-  if rule = '' then rule:= '23/3';
+  if rule = '' then rule:= 'M:23/3';
   for i:= 0 to 511 do FRuleArray[i]:= false;
 
   Rule:= Lowercase(Rule);
@@ -228,8 +228,7 @@ const
 (* set Rule array by neighborhood type (of 51 possibilities) specified
  * by number of neighbors (num) and a letter of the alphabet (c).
  * survival:= true if survival rule, false if birth.
- * b:= true if adding, false if suppressing survival or birth.
- *)
+ * b:= true if adding, false if suppressing survival or birth. *)
 procedure TLifeRules.setSymmetricalNeighborhood(num: integer; survival: boolean;c: char;
     b: boolean);
 var

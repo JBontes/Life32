@@ -38,7 +38,7 @@ const
   idName = 2;
   idLongInfo =3;
 
-  StandardRuleList: array[0..16,0..3] of string =
+  StandardRuleList: array[0..17,0..3] of string =
     (('M:/2','(exploding) phoenix, minimal','','(Exploding) Every living cell dies every generation, but most pa' +
               'tterns explode anyway. It'#39's a challenge to build new patterns th' +
               'at don'#39't explode. Arguably the simplest challenging rule.'),
@@ -90,6 +90,10 @@ const
               'hen, it was months before anyone noticed that this is an explodi' +
               'ng universe. What makes this universe interesting is the variety' +
               ' of small oscillators and the period-3 orthogonal spaceship.'),
+     ('H:35/2','(chaotic) "HexLife"','HexLife',
+              '(Chaotic) A variant of life played on a hexagonal grid. ' +
+              'Whilst no hex rule has the same richness of lifeforms as Conway''s ' +
+              'this one comes close'),
      ('M:34678/3678','(stable) "Day & Night"','Day & Night',
               '(Stable) So named because dead cells in fields of live cells act' +
               ' by the same rules as live cells in fields of dead cells. There ' +
@@ -142,7 +146,7 @@ begin
   inherited Create;
   //MyReg:= TRegistry.Create;
   //MyReg:= TIniFile.Create('Life32Rules.ini');
-  MyReg:= TRegistryIniFile.Create('Software\'+'Life32Rules');
+  MyReg:= TRegistryIniFile.Create('Software\Life32\'+'Life32Rules');
   //MyReg.Rootkey:= HKEY_CURRENT_USER;
     //if not(MyReg.OpenKey('SOFTWARE',DontCreate)) then
     //raise Exception.Create('Registry may be damaged');

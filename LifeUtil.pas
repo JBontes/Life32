@@ -98,7 +98,7 @@ const
 begin
   try
     //Result:= TIniFile.Create('Life32.ini');
-    Result:= TRegistryIniFile.Create('Software\'+Application.Title);
+    Result:= TRegistryIniFile.Create('Software\Life32');
     with Result do begin
       //Rootkey:= HKEY_LOCAL_MACHINE;
       //if not(OpenKey('SOFTWARE',DontCreate)) then

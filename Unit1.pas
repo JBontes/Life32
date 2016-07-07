@@ -1195,10 +1195,10 @@ begin
   with OpenReg do try
     ws:= TWindowState(ReadInteger('Unit1.pas','WindowState',integer(WindowState)));
     if ws <> wsMinimized then begin
-      Left:= ReadInteger('Unit1.pas','Left',Screen.Width);
-      Top:= ReadInteger('Unit1.pas','Top',Screen.Height);
-      Width:= ReadInteger('Unit1.pas','Width',Screen.Width div 2);
-      Height:= ReadInteger('Unit1.pas','Height',Screen.Height div 2);
+      Left:= ReadInteger('Unit1.pas','Left', Screen.Width div 4);
+      Top:= ReadInteger('Unit1.pas','Top', Screen.Height div 4);
+      Width:= ReadInteger('Unit1.pas','Width', Screen.Width div 2);
+      Height:= ReadInteger('Unit1.pas','Height', Screen.Height div 2);
       Left:= Min(Left, Screen.Width - Width);
       Top:= Min(Top, Screen.Height - Height);
     end;

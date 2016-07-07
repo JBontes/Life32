@@ -91,8 +91,8 @@ const
   nbHex = $1AB;
   nb7Cell = nbHex;
   nbX = $145;
-  nbMax = $1FF;
   nbJustFriends = $ffef; //Moore neighbourhood, but specialcased.
+  nbMax = nbJustFriends;
   DefaultMaxNeighbors = 8;
 
 
