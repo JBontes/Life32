@@ -5,7 +5,7 @@ _If you don't know what Life (or a CA) is, check out http://conwaylife.com_
 Life32 will run on any Windows version from XP to 10. 
 
 #Installing the program
-You can find the binary files needed to run Life32 in the `Binary` folder.  
+You can find the binary files needed to run Life32 in the [`Binary`](https://github.com/JBontes/Life32/tree/master/Binary) folder.  
 Just copy these into any folder and run the program from there.  
 
 
