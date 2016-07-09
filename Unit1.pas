@@ -1391,7 +1391,7 @@ procedure TLife32MainForm.FormPaint(Sender: TObject);
   //OldCP: TPoint;
 begin
   //LifeBox1.RefreshColors;
-	LifeBox1.Repaint;
+	//LifeBox1.Repaint;
   FormShow(Sender);
 end;
 

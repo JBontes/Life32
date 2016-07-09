@@ -133,7 +133,7 @@ type
     FSelectionVisible: boolean;
 
     CursorDirty: Boolean;
-    viewChanged: boolean;
+    FViewChanged: boolean;
     Dragstate: Boolean;
     FGrid: boolean;
     FCanPaint: TCanPaint;
@@ -2146,7 +2146,7 @@ begin
         end; {case}
       end {if}
       //Display the normal zoom.
-      else case ViewChanged of
+      else case FViewChanged of
         //only show changes
         //no frames dropped, so only display diff
         false: begin
@@ -2248,11 +2248,10 @@ begin
       WhiteDisplay:= false;
       if (Grid) {and (not WhiteDisplay)} then DrawGrid(ARect);
       Canvas.Brush.Color:= CelColor;
-      ViewChanged:= true;
-      //RedrawBackground(ARect);
+      FViewChanged:= true;
       Universe.FreshenView;
       Display(ARect);
-      ViewChanged:= false;
+      FViewChanged:= false;
       if SelectionVisible then DrawSelRect;
     end;
     Validate;
@@ -2271,11 +2270,10 @@ function TLifeBox.UpdateAll: boolean;
 var
   ARect: TRect;
 begin
-  if(viewChanged) then Universe.freshenView();
-  //ARect:= GetLifeBoxClipRect;
+  if(FViewChanged) then Universe.freshenView();
   ARect:= GetLifeBoxClipRect;
   Result:= display(ARect);
-  ViewChanged:= false;
+  FViewChanged:= false;
 end;
 
 
@@ -2718,10 +2716,10 @@ begin
     if not IsMyRectEmpty(ClipRect) then IntersectRect(ClearRect,ClipRect,ARect)
     else IntersectRect(ClearRect,Self.ClientRect,ARect);
     RedrawBackground(ClearRect);
-    ViewChanged:= true;
+    FViewChanged:= true;
     Universe.FreshenView;
     Display(ClearRect);
-    ViewChanged:= false;
+    FViewChanged:= false;
   end;
 end;
 
@@ -3454,6 +3452,7 @@ end;
 
 function TLifeBox.GetLifeBoxClipRect: TRect;
 begin
+  Result:= Rect(0,0,0,0);
   //Window has style CS_OWNDC, this speeds up action by 7%.
   GetClipBox(FMyDC,Result);
   {if we disregard all further clipping, we can speed up by 2-3%, not worth it}

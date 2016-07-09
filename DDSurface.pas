@@ -125,7 +125,7 @@ type
     {$endif}
     procedure PatBlt24(x1,y1,AWidth, AHeight, AColor: integer);
 
-    procedure FillRect(ARect: TRect; AColor: integer; Wait: boolean);
+    procedure FillRect(const ARect: TRect; AColor: integer; Wait: boolean);
     //procedure FillRectXor(ARect: TRect; AColor: integer);
     procedure FillWindow(AWindow: TControl; ARect: TRect; AColor: integer; Wait: boolean);
     procedure InitDrawRoutines(ACelSpace: integer; GridOn: boolean);
@@ -147,10 +147,33 @@ type
     property BytesPerPixel: integer read FBytesPerPixel;
   end;
 
+  TMyDDSurfaceGDI = class(TMyDDSurface)
+  private
+
+  public
+    constructor Create(AOwner: TWinControl);
+    destructor Destroy; override;
+    function GetWinNearestColor(AColor: TColor): TColor;
+    function GetDDNearestColor(AColor: TColor): integer;
+    procedure SetDDPixel(X,Y: Integer; AColor: integer);
+    procedure XorBlt(x1,y1,AWidth, AHeight, AColor: integer);
+    procedure XorBlt24(x1,y1,AWidth, AHeight, AColor: integer);
+    procedure PatBlt(x1,y1,AWidth, AHeight, AColor: integer);
+    procedure PatBlt24(x1,y1,AWidth, AHeight, AColor: integer);
+
+    procedure FillRect(const ARect: TRect; AColor: integer; Wait: boolean);
+    procedure FillWindow(AWindow: TControl; ARect: TRect; AColor: integer; Wait: boolean);
+    procedure InitDrawRoutines(ACelSpace: integer; GridOn: boolean);
+    procedure SuspendDirectDraw(Suspend: boolean);
+    procedure DisplayChange(BitsPerPixel,Width,Height: integer);
+    function Lock(ACanvas: TCanvas): boolean;
+    procedure UnLock;
+  end;
+
 implementation
 
-var
-  PitchLookup: array [0..2048] of integer;
+//var
+//  PitchLookup: array [0..2048] of integer;
 
 var
   DDrawLoaded: boolean;
@@ -158,7 +181,6 @@ var
 
 constructor TMyDDSurface.Create(AOwner: TWinControl);
 var
-  i: integer;
   Filename: string;
   FileHandle: THandle;
   FileDate: TDateTime;
@@ -196,9 +218,9 @@ begin
   FInstalled:= (DirectDrawEnabled and DDFast) = DDFast;
 
 
-  for i:= Low(PitchLookup) to High(PitchLookup) do begin
-    PitchLookup[i]:= FPitch * i;
-  end; {for i}
+//  for i:= Low(PitchLookup) to High(PitchLookup) do begin
+//    PitchLookup[i]:= FPitch * i;
+//  end; {for i}
 
 end;
 
@@ -251,7 +273,6 @@ end;
 procedure TMyDDSurface.InitDirectDraw;
 var
   ddsd: TDDSurfaceDesc;
-  i: integer;
   MyDirectDrawCreate: TMyDirectDrawCreate;
 begin
   @MyDirectDrawCreate:= GetProcAddress(HDDrawLib,'DirectDrawCreate');
@@ -273,10 +294,10 @@ begin
   Lock(nil);
   Unlock; //Lock does some init work to.
   FBytesPerPixel:= FPitch div FVidWidth;
-  if PitchLookup[1] <> FPitch then
-    for i:= 0 to High(PitchLookup) do begin
-      PitchLookup[i]:= FPitch * i;
-    end; {for i}
+//  if PitchLookup[1] <> FPitch then
+//    for i:= 0 to High(PitchLookup) do begin
+//      PitchLookup[i]:= FPitch * i;
+//    end; {for i}
   InitDrawRoutines(CelSpace,GridEnabled);
 end;
 
@@ -298,36 +319,32 @@ var
   ddsd: TDDSurfaceDesc;
   LockResult: HResult;
 begin
-  Result:= LockOk;
+  Result:= LockOK;
   if not(Locked) then begin
     if (DirectDrawEnabled = DDFast) then begin
-      FillChar(ddsd,SizeOf(ddsd),0);
+      FillChar(ddsd, SizeOf(ddsd), 0);
       ddsd.dwSize:= SizeOf(ddsd);
       try
-        LockResult:= HResult(DDERR_SURFACEBUSY);
-        while LockResult = HResult(DDERR_SURFACEBUSY) do begin
-          LockResult:= FDDSurface.Lock(nil, @ddsd, DDLOCK_WAIT, 0);
-        end;
+        repeat LockResult:= FDDSurface.Lock(nil, @ddsd, DDLOCK_WAIT, 0);
+        until (LockResult <> HResult(DDERR_SURFACEBUSY));
         if LockResult = DD_OK then begin
           FVidMem:= ddsd.lpSurface;
           FPitch:= ddsd.lPitch;
-        end
-        else begin
-          FDDSurface.Unlock(ddsd.lpSurface);
+        end else begin
+          FDDSurface.UnLock(ddsd.lpSurface);
           if Assigned(ACanvas) then FCanvas:= ACanvas;
           Result:= NoLock;
         end;
-        except begin
-          FDDSurface.Unlock(ddsd.lpSurface);
-        end; {except}
-      end; {try}
-    end {true:}
-    //DDraw is disabled.
+      except
+        FDDSurface.UnLock(ddsd.lpSurface);
+      end; { try }
+    end { true: }
+    // DDraw is disabled.
     else begin
       if Assigned(ACanvas) then FCanvas:= ACanvas;
-      Result:= lockOK;
-    end; {else}
-  end; {if}
+      Result:= LockOK;
+    end; { else }
+  end; { if }
   FLocked:= Result;
 end;
 
@@ -431,7 +448,7 @@ begin
   WasLocked:= Locked;
   if Lock(nil) then try //does nothing if already 'locked'
     x:= x * FBytesPerPixel;
-    NativeInt(WritePos):= NativeInt(FVidMem) + x + PitchLookup[y];
+    NativeInt(WritePos):= NativeInt(FVidMem) + x + (y * FPitch);// PitchLookup[y];
     case FBytesPerPixel of
       1:WritePos^.B:= AColor;
       2:WritePos^.S:= AColor;
@@ -450,146 +467,151 @@ procedure TMyDDSurface.DisplayBlackPart1x1(x1,y1,AColor: integer);
 asm
   push ebx   //u
   //ecx:= y1 * FPitch
-  mov ecx,dword ptr [4*ecx+PitchLookup]   //v
+  //mov ecx,dword ptr [4*ecx+PitchLookup]
+  imul ecx,[eax+TMyDDSurface.FPitch]
   //ebx:= Self.FPitch
-  mov ebx,[eax+TMyDDSurface.FPitch]       //u
+  mov ebx,[eax+TMyDDSurface.FPitch]
   //esi:= (y1*FPitch) + x1
-  add ecx,edx                             //v
-  mov edx,[AColor]                        //u
+  add ecx,edx
+  mov edx,[AColor]
   //esi:= esi + Self.FVidMem
-  add ecx,[eax+TMyDDSurface.FVidMem]      //v
-  mov [ecx],edx                           //u
-  mov [ecx+ebx],edx                       //v
-  mov [ecx+ebx*2],edx                     //u
-  add ecx,ebx                             //v
-  mov [ecx+ebx*2],edx                     //u
-  pop ebx                                 //v
-end; {asm}
+  add ecx,[eax+TMyDDSurface.FVidMem]
+  mov [ecx],edx
+  mov [ecx+ebx],edx
+  mov [ecx+ebx*2],edx
+  add ecx,ebx
+  mov [ecx+ebx*2],edx
+  pop ebx
+end;
 
 
 procedure TMyDDSurface.DisplayBlackPart1x1_16(x1,y1,AColor: integer);
 asm
   push ebx   //u
   //ecx:= y1 * FPitch
-  mov ecx,dword ptr [4*ecx+PitchLookup]   //v
+  //mov ecx,dword ptr [4*ecx+PitchLookup]
+  imul ecx,[eax+TMyDDSurface.FPitch]
   //ebx:= Self.FPitch
-  mov ebx,[eax+TMyDDSurface.FPitch]       //u
+  mov ebx,[eax+TMyDDSurface.FPitch]
   //esi:= (y1*FPitch) + x1
-  lea ecx,[ecx+edx*2]                     //v
-  mov edx,[AColor]                        //u
+  lea ecx,[ecx+edx*2]
+  mov edx,[AColor]
   //esi:= esi + Self.FVidMem
-  add ecx,[eax+TMyDDSurface.FVidMem]      //v
-  mov [ecx],edx                           //u
-  mov [ecx+4],edx                         //v
-  mov [ecx+ebx],edx                       //u
-  mov [ecx+ebx+4],edx                     //v
-  mov [ecx+ebx*2],edx                     //u
-  mov [ecx+ebx*2+4],edx                   //v
-  add ecx,ebx                             //v
-  mov [ecx+ebx*2],edx                     //u
-  mov [ecx+ebx*2+4],edx                   //v
-  pop ebx                                 //u
-end; {asm}
+  add ecx,[eax+TMyDDSurface.FVidMem]
+  mov [ecx],edx
+  mov [ecx+4],edx
+  mov [ecx+ebx],edx
+  mov [ecx+ebx+4],edx
+  mov [ecx+ebx*2],edx
+  mov [ecx+ebx*2+4],edx
+  add ecx,ebx
+  mov [ecx+ebx*2],edx
+  mov [ecx+ebx*2+4],edx
+  pop ebx
+end;
 
 procedure TMyDDSurface.DisplayBlackPart1x1_24(x1,y1,AColor: integer);
 asm
   push ebx   //u
   //ecx:= y1 * FPitch
-  mov ecx,dword ptr [4*ecx+PitchLookup]   //v
+  //mov ecx,dword ptr [4*ecx+PitchLookup]
+  imul ecx,[eax+TMyDDSurface.FPitch]
   //ebx:= Self.FPitch
-  mov ebx,[eax+TMyDDSurface.FPitch]       //u
+  mov ebx,[eax+TMyDDSurface.FPitch]
   //esi:= (y1*FPitch) + x1
-  lea ecx,[ecx+edx*2]                     //v
+  lea ecx,[ecx+edx*2]
   lea ecx,[ecx+edx]
-  mov edx,[AColor]                        //u
+  mov edx,[AColor]
   //esi:= esi + Self.FVidMem
-  add ecx,[eax+TMyDDSurface.FVidMem]      //v
+  add ecx,[eax+TMyDDSurface.FVidMem]
   mov al,dl
   shr edx,8
-  mov [ecx],al                           //u
-  mov [ecx+3],al                         //v
-  mov [ecx+6],al                         //u
-  mov [ecx+9],al                        //v
-  mov [ecx+ebx],al                       //u
-  mov [ecx+ebx+3],al                     //v
-  mov [ecx+ebx+6],al                     //u
-  mov [ecx+ebx+9],al                    //v
-  mov [ecx+ebx*2],al                     //u
-  mov [ecx+ebx*2+3],al                   //v
-  mov [ecx+ebx*2+6],al                   //u
-  mov [ecx+ebx*2+9],al                  //v
+  mov [ecx],al
+  mov [ecx+3],al
+  mov [ecx+6],al
+  mov [ecx+9],al
+  mov [ecx+ebx],al
+  mov [ecx+ebx+3],al
+  mov [ecx+ebx+6],al
+  mov [ecx+ebx+9],al
+  mov [ecx+ebx*2],al
+  mov [ecx+ebx*2+3],al
+  mov [ecx+ebx*2+6],al
+  mov [ecx+ebx*2+9],al
 
-  mov [ecx+1],dx                           //u
-  mov [ecx+3+1],dx                         //v
-  mov [ecx+6+1],dx                         //u
-  mov [ecx+9+1],dx                        //v
-  mov [ecx+ebx+1],dx                       //u
-  mov [ecx+ebx+3+1],dx                     //v
-  mov [ecx+ebx+6+1],dx                     //u
-  mov [ecx+ebx+9+1],dx                    //v
-  mov [ecx+ebx*2+1],dx                     //u
-  mov [ecx+ebx*2+3+1],dx                   //v
-  mov [ecx+ebx*2+6+1],dx                   //u
-  mov [ecx+ebx*2+9+1],dx                  //v
-  add ecx,ebx                             //v
-  mov [ecx+ebx*2],al                     //u
-  mov [ecx+ebx*2+3],al                   //v
-  mov [ecx+ebx*2+6],al                   //u
-  mov [ecx+ebx*2+9],al                  //v
+  mov [ecx+1],dx
+  mov [ecx+3+1],dx
+  mov [ecx+6+1],dx
+  mov [ecx+9+1],dx
+  mov [ecx+ebx+1],dx
+  mov [ecx+ebx+3+1],dx
+  mov [ecx+ebx+6+1],dx
+  mov [ecx+ebx+9+1],dx
+  mov [ecx+ebx*2+1],dx
+  mov [ecx+ebx*2+3+1],dx
+  mov [ecx+ebx*2+6+1],dx
+  mov [ecx+ebx*2+9+1],dx
+  add ecx,ebx
+  mov [ecx+ebx*2],al
+  mov [ecx+ebx*2+3],al
+  mov [ecx+ebx*2+6],al
+  mov [ecx+ebx*2+9],al
 
-  mov [ecx+ebx*2+1],dx                     //u
-  mov [ecx+ebx*2+3+1],dx                   //v
-  mov [ecx+ebx*2+6+1],dx                   //u
-  mov [ecx+ebx*2+9+1],dx                  //v
-  pop ebx                                 //u
-end; {asm}
+  mov [ecx+ebx*2+1],dx
+  mov [ecx+ebx*2+3+1],dx
+  mov [ecx+ebx*2+6+1],dx
+  mov [ecx+ebx*2+9+1],dx
+  pop ebx
+end;
 
 
 procedure TMyDDSurface.DisplayBlackPart1x1_32(x1,y1,AColor: integer);
 asm
   push ebx   //u
   //ecx:= y1 * FPitch
-  mov ecx,dword ptr [4*ecx+PitchLookup]   //v
+  //mov ecx,dword ptr [4*ecx+PitchLookup]
+  imul ecx,[eax+TMyDDSurface.FPitch]
   //ebx:= Self.FPitch
-  mov ebx,[eax+TMyDDSurface.FPitch]       //u
+  mov ebx,[eax+TMyDDSurface.FPitch]
   //esi:= (y1*FPitch) + x1
-  lea ecx,[ecx+edx*4]                     //v
-  mov edx,[AColor]                        //u
+  lea ecx,[ecx+edx*4]
+  mov edx,[AColor]
   //esi:= esi + Self.FVidMem
-  add ecx,[eax+TMyDDSurface.FVidMem]      //v
-  mov [ecx],edx                           //u
-  mov [ecx+4],edx                         //v
-  mov [ecx+8],edx                         //u
-  mov [ecx+12],edx                        //v
-  mov [ecx+ebx],edx                       //u
-  mov [ecx+ebx+4],edx                     //v
-  mov [ecx+ebx+8],edx                     //u
-  mov [ecx+ebx+12],edx                    //v
-  mov [ecx+ebx*2],edx                     //u
-  mov [ecx+ebx*2+4],edx                   //v
-  mov [ecx+ebx*2+8],edx                   //u
-  mov [ecx+ebx*2+12],edx                  //v
-  add ecx,ebx                             //v
-  mov [ecx+ebx*2],edx                     //u
-  mov [ecx+ebx*2+4],edx                   //v
-  mov [ecx+ebx*2+8],edx                   //u
-  mov [ecx+ebx*2+12],edx                  //v
-  pop ebx                                 //u
-end; {asm}
+  add ecx,[eax+TMyDDSurface.FVidMem]
+  mov [ecx],edx
+  mov [ecx+4],edx
+  mov [ecx+8],edx
+  mov [ecx+12],edx
+  mov [ecx+ebx],edx
+  mov [ecx+ebx+4],edx
+  mov [ecx+ebx+8],edx
+  mov [ecx+ebx+12],edx
+  mov [ecx+ebx*2],edx
+  mov [ecx+ebx*2+4],edx
+  mov [ecx+ebx*2+8],edx
+  mov [ecx+ebx*2+12],edx
+  add ecx,ebx
+  mov [ecx+ebx*2],edx
+  mov [ecx+ebx*2+4],edx
+  mov [ecx+ebx*2+8],edx
+  mov [ecx+ebx*2+12],edx
+  pop ebx
+end;
 
 
 procedure TMyDDSurface.DisplayBlackPart2x2(x1,y1,AColor: integer);
 asm
   push ebx   //u
   //ecx:= y1 * FPitch
-  mov ecx,dword ptr [4*ecx+PitchLookup]   //v
+  //mov ecx,dword ptr [4*ecx+PitchLookup]
+  imul ecx,[eax+TMyDDSurface.FPitch]
   //ebx:= Self.FPitch
-  mov ebx,[eax+TMyDDSurface.FPitch]       //u
+  mov ebx,[eax+TMyDDSurface.FPitch]
   //esi:= (y1*FPitch) + x1
-  add ecx,edx                             //v
-  mov edx,[AColor]                        //u
+  add ecx,edx
+  mov edx,[AColor]
   //esi:= esi + Self.FVidMem
-  add ecx,[eax+TMyDDSurface.FVidMem]      //v
+  add ecx,[eax+TMyDDSurface.FVidMem]
   push esi
 
   mov [ecx],edx
@@ -618,20 +640,21 @@ asm
 
   pop esi
   pop ebx
-end; {asm}
+end;
 
 procedure TMyDDSurface.DisplayBlackPart2x2_16(x1,y1,AColor: integer);
 asm
   push ebx   //u
   //ecx:= y1 * FPitch
-  mov ecx,dword ptr [4*ecx+PitchLookup]   //v
+  //mov ecx,dword ptr [4*ecx+PitchLookup]
+  imul ecx,[eax+TMyDDSurface.FPitch]
   //ebx:= Self.FPitch
-  mov ebx,[eax+TMyDDSurface.FPitch]       //u
+  mov ebx,[eax+TMyDDSurface.FPitch]
   //esi:= (y1*FPitch) + x1
-  lea ecx,[ecx+edx*2]                     //v
-  mov edx,[AColor]                        //u
+  lea ecx,[ecx+edx*2]
+  mov edx,[AColor]
   //esi:= esi + Self.FVidMem
-  add ecx,[eax+TMyDDSurface.FVidMem]      //v
+  add ecx,[eax+TMyDDSurface.FVidMem]
   push esi
 
   mov [ecx],edx
@@ -676,7 +699,7 @@ asm
 
   pop esi
   pop ebx
-end; {asm}
+end;
 
 
 procedure TMyDDSurface.DisplayBlackPart2x2_24(x1,y1,AColor: integer);
@@ -842,7 +865,7 @@ begin
     pop edi
     pop esi
     pop ebx
-  end; {asm} (**)
+  end; (**)
 end;
 
 
@@ -850,14 +873,15 @@ procedure TMyDDSurface.DisplayBlackPart2x2_32(x1,y1,AColor: integer);
 asm
   push ebx   //u
   //ecx:= y1 * FPitch
-  mov ecx,dword ptr [4*ecx+PitchLookup]   //v
+  //mov ecx,dword ptr [4*ecx+PitchLookup]
+  imul ecx,[eax+TMyDDSurface.FPitch]
   //ebx:= Self.FPitch
-  mov ebx,[eax+TMyDDSurface.FPitch]       //u
+  mov ebx,[eax+TMyDDSurface.FPitch]
   //esi:= (y1*FPitch) + x1
-  lea ecx,[ecx+edx*4]                     //v
-  mov edx,[AColor]                        //u
+  lea ecx,[ecx+edx*4]
+  mov edx,[AColor]
   //esi:= esi + Self.FVidMem
-  add ecx,[eax+TMyDDSurface.FVidMem]      //v
+  add ecx,[eax+TMyDDSurface.FVidMem]
   push esi
 
   mov [ecx],edx                //Line 1
@@ -934,7 +958,7 @@ asm
 
   pop esi
   pop ebx
-end; {asm}
+end;
 {$endif}
 
 procedure TMyDDSurface.DisplayBlackPart2plus(x1,y1,Acolor: integer);
@@ -969,8 +993,10 @@ asm
     push edi
     push esi
 
-    mov esi,dword ptr [4*ecx+PitchLookup]
-    mov ebx,[eax+TMyDDSurface.FPitch]
+    //mov esi,dword ptr [4*ecx+PitchLookup]  //esi = @PitchLookup[y1]
+    mov esi,ecx
+    imul esi,[eax+TMyDDSurface.FPitch]
+    mov ebx,[eax+TMyDDSurface.FPitch]      //ebx = Self.Pitch
     add esi,edx
     mov ecx,[AColor]
     add esi,[eax+TMyDDSurface.FVidMem]
@@ -1083,7 +1109,7 @@ Sc0c0:
 
 AfterCase:
     lea esi,[esi+ebx]
-    lea eax,[eax*4] //shl can't run in v-pipe.
+    shl eax,2
 
     dec edx
     //or eax,eax
@@ -1107,8 +1133,10 @@ asm
     push edi
     push esi
 
-    mov esi,dword ptr PitchLookup[4*ecx]   //esi:= y1 * FPitch;
+    //mov esi,dword ptr PitchLookup[4*ecx]   //esi:= y1 * FPitch;
     mov ebx,[eax+TMyDDSurface.FPitch]      //ebx:= Self.FPitch
+    mov esi,ecx
+    imul esi,ebx
     lea esi,[esi+edx*2]                    //esi:= (y1*FPitch) + x1
     mov ecx,[AColor]
     add esi,[eax+TMyDDSurface.FVidMem]     //add startaddres.
@@ -1246,8 +1274,10 @@ asm
     push esi
     push ebp
 
-    mov esi,dword ptr PitchLookup[4*ecx]   //esi:= y1 * FPitch;
+    //mov esi,dword ptr PitchLookup[4*ecx]   //esi:= y1 * FPitch;
+    mov esi,ecx
     mov ebx,[eax+TMyDDSurface.FPitch]      //ebx:= Self.FPitch
+    imul esi,ebx
     lea esi,[esi+edx*2]                    //esi:= (y1*FPitch) + x1
     lea esi,[esi+edx]
     mov ecx,[AColor]
@@ -1432,8 +1462,10 @@ asm
     push edi
     push esi
 
-    mov esi,dword ptr PitchLookup[4*ecx]   //esi:= y1 * FPitch;
+    //mov esi,dword ptr PitchLookup[4*ecx]   //esi:= y1 * FPitch;
+    mov esi,ecx
     mov ebx,[eax+TMyDDSurface.FPitch]      //ebx:= Self.FPitch
+    imul esi,ebx
     lea esi,[esi+edx*4]                    //esi:= (y1*FPitch) + x1
     mov ecx,[AColor]
     add esi,[eax+TMyDDSurface.FVidMem]     //add startaddres.
@@ -1588,10 +1620,11 @@ asm
   //x1,y1 is the top-left part of the CelPart.
 
   //Inc(Integer(WritePos),x1 + (FPitch * y1));
-    mov esi,dword ptr [4*ecx+PitchLookup]
+    //mov esi,dword ptr [4*ecx+PitchLookup]
+    mov esi,ecx
     mov ebx,[eax+TMyDDSurface.FPitch]
-    //imul ecx,esi  //due to bug in Delphi 2, this compiles to imul esi,ecx
-    add esi,edx   //so in the object-code the result of imul is stored in esi.
+    imul esi,ebx
+    add esi,edx
     mov edx,[CelPart]
     mov ecx,[AColor]
     mov edi,edx
@@ -1877,8 +1910,10 @@ asm
     push esi
 
   //Inc(Integer(WritePos),x1 + (FPitch * y1));
-    mov esi,dword ptr PitchLookup[4*ecx]
+    //mov esi,dword ptr PitchLookup[4*ecx]
+    mov esi,ecx
     mov ebx,[eax+TMyDDSurface.FPitch]
+    imul esi,ebx
     lea esi,[esi+edx*2]
     mov edx,[CelPart]
     mov ecx,[AColor]
@@ -2459,8 +2494,10 @@ asm
     push esi
 
   //Inc(Integer(WritePos),x1 + (FPitch * y1));
-    mov esi,dword ptr PitchLookup[4*ecx]
+    //mov esi,dword ptr PitchLookup[4*ecx]
+    mov esi,ecx
     mov ebx,[eax+TMyDDSurface.FPitch]
+    imul esi,ebx
     lea esi,[esi+edx*4]
     mov edx,[CelPart]
     mov ecx,[AColor]
@@ -3266,7 +3303,9 @@ asm
     mov    esi,[eax+TMyDDSurface.FVidMem]
     add    esi,edx
     mov    edx,[AWidth]
-    add    esi, dword ptr [4*edi+PitchLookUp]
+    imul   edi,[eax+TMyDDSurface.FPitch]
+    //add    esi, dword ptr [4*edi+PitchLookUp]
+    add    esi,edi
     //xi:= AWidth shr 2;
     shr    edx,02h
     mov    [xi],edx
@@ -3324,7 +3363,7 @@ asm
     pop    edi
     pop    esi
     pop    ebx
-end; {asm}
+end;
 {$endif}
 
 procedure TMyDDSurface.PatBlt24(x1,y1,AWidth, AHeight, AColor: integer);
@@ -3340,7 +3379,7 @@ begin
   x1:= x1 * FBytesPerPixel;
   x3:= AWidth;
   AWidth:= AWidth * FBytesPerPixel;
-  NativeInt(WritePos):= NativeInt(FVidMem) + x1 + PitchLookup[y1];
+  NativeInt(WritePos):= NativeInt(FVidMem) + x1 + (y1 * FPitch);  //PitchLookup[y1];
   for y:= 1 to AHeight do begin
     x:= x3;
     //while x > 1 do begin
@@ -3371,21 +3410,23 @@ asm
     push   ebx
     push   esi
     push   edi
-    mov    [y1],ecx
+    mov    edi,ecx
     mov    ecx,[AColor]
     //x1:= x1 * FBytesPerPixel;
     mov    ebx,[eax+TMyDDSurface.FBytesPerPixel]
     mov    esi,[AWidth]
     imul   edx,ebx
     //AWidth:= AWidth * FBytesPerPixel;
-    mov    edi,[y1]
+    //mov    edi,[y2]
     imul   esi,ebx
     mov    [AWidth],esi
     //Integer(WritePos):= Integer(FVidMem) + x1 + PitchLookup[y1];
     mov    esi,[eax+TMyDDSurface.FVidMem]
     add    esi,edx
     mov    edx,[AWidth]
-    add    esi, dword ptr [4*edi+PitchLookUp]
+    //add    esi, dword ptr [4*edi+PitchLookUp]
+    imul    edi,[eax+TMyDDSurface.FPitch]
+    add     esi,edi
     //xi:= AWidth shr 2;
     shr    edx,02h
     mov    [xi],edx
@@ -3443,7 +3484,7 @@ asm
     pop    edi
     pop    esi
     pop    ebx
-  end; {asm}
+  end;
   (*x1:= x1 * FBytesPerPixel;
   AWidth:= AWidth * FBytesPerPixel;
   Integer(WritePos):= Integer(FVidMem) + x1 + PitchLookup[y1];
@@ -3485,7 +3526,7 @@ begin
   x1:= x1 * FBytesPerPixel;
   x3:= AWidth;
   AWidth:= AWidth * FBytesPerPixel;
-  NativeInt(WritePos):= NativeInt(FVidMem) + x1 + PitchLookup[y1];
+  NativeInt(WritePos):= NativeInt(FVidMem) + x1 + (y1 * FPitch);//PitchLookup[y1];
   for y:= 1 to AHeight do begin
     x:= x3;
     //while x > 1 do begin
@@ -3555,7 +3596,7 @@ begin
   if WasLocked then Lock(FCanvas) else UnLock;
 end; (**)
 
-procedure TMyDDSurface.FillRect(ARect: TRect; AColor: integer; Wait: boolean);
+procedure TMyDDSurface.FillRect(const ARect: TRect; AColor: integer; Wait: boolean);
 var
   DDBltFx: TDDBltFx;
   DDResult: HResult;
@@ -3738,6 +3779,89 @@ end;
 procedure TMyDDSurface.SetBounds(Value: TRect);
 begin
   FBounds:= Value;
+end;
+
+{ TMyDDSurfaceGDI }
+
+constructor TMyDDSurfaceGDI.Create(AOwner: TWinControl);
+begin
+  inherited Create(AOwner);
+end;
+
+destructor TMyDDSurfaceGDI.Destroy;
+begin
+  inherited;
+end;
+
+procedure TMyDDSurfaceGDI.DisplayChange(BitsPerPixel, Width, Height: integer);
+begin
+  {do nothing}
+end;
+
+procedure TMyDDSurfaceGDI.FillRect(const ARect: TRect; AColor: integer; Wait: boolean);
+asm
+
+end;
+
+procedure TMyDDSurfaceGDI.FillWindow(AWindow: TControl; ARect: TRect; AColor: integer;
+  Wait: boolean);
+begin
+
+end;
+
+function TMyDDSurfaceGDI.GetDDNearestColor(AColor: TColor): integer;
+begin
+
+end;
+
+function TMyDDSurfaceGDI.GetWinNearestColor(AColor: TColor): TColor;
+begin
+  Result:= AColor;
+end;
+
+procedure TMyDDSurfaceGDI.InitDrawRoutines(ACelSpace: integer; GridOn: boolean);
+begin
+
+end;
+
+function TMyDDSurfaceGDI.Lock(ACanvas: TCanvas): boolean;
+begin
+
+end;
+
+procedure TMyDDSurfaceGDI.PatBlt(x1, y1, AWidth, AHeight, AColor: integer);
+begin
+
+end;
+
+procedure TMyDDSurfaceGDI.PatBlt24(x1, y1, AWidth, AHeight, AColor: integer);
+begin
+
+end;
+
+procedure TMyDDSurfaceGDI.SetDDPixel(X, Y, AColor: integer);
+begin
+
+end;
+
+procedure TMyDDSurfaceGDI.SuspendDirectDraw(Suspend: boolean);
+begin
+
+end;
+
+procedure TMyDDSurfaceGDI.UnLock;
+begin
+
+end;
+
+procedure TMyDDSurfaceGDI.XorBlt(x1, y1, AWidth, AHeight, AColor: integer);
+begin
+
+end;
+
+procedure TMyDDSurfaceGDI.XorBlt24(x1, y1, AWidth, AHeight, AColor: integer);
+begin
+
 end;
 
 initialization
